@@ -19,6 +19,17 @@ RUN git clone --depth 1 https://github.com/hiyouga/LLaMA-Factory.git && \
     cd LLaMA-Factory && \
     pip install -e ".[deepspeed,metrics]" --no-build-isolation
 
+# Apply FP8 fixes for proper Transformer Engine support
+COPY patches/001-fix-model-args-not-passed.patch /tmp/
+COPY fp8_utils_fixed.py /tmp/
+
+# Apply patch for workflow.py (adds model_args parameter)
+RUN cd LLaMA-Factory && \
+    patch -p1 < /tmp/001-fix-model-args-not-passed.patch
+
+# Replace fp8_utils.py with fixed version (adds TE backend support)
+RUN cp /tmp/fp8_utils_fixed.py /workspace/LLaMA-Factory/src/llamafactory/train/fp8_utils.py
+
 # Install additional dependencies for FP8 with Transformer Engine
 RUN pip install --no-cache-dir \
     transformer-engine[pytorch] \
