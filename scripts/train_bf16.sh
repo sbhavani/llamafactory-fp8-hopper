@@ -35,6 +35,11 @@ echo "Master port: $MASTER_PORT"
 
 cd /workspace/LLaMA-Factory
 
+# Config file (use argument or default to Qwen)
+CONFIG_FILE=${1:-/workspace/configs/qwen_bf16_baseline_sft.yaml}
+
+echo "Using config: $CONFIG_FILE"
+
 # Run training
 echo "Starting BF16 training..."
 torchrun --nproc_per_node=$GPU_NUM \
@@ -43,6 +48,6 @@ torchrun --nproc_per_node=$GPU_NUM \
     --master_addr=${MASTER_ADDR} \
     --master_port=${MASTER_PORT} \
     src/train.py \
-    /workspace/configs/llama3_bf16_baseline_sft.yaml
+    $CONFIG_FILE
 
 echo "BF16 training completed!"

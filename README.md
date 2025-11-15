@@ -64,15 +64,39 @@ This checks:
 
 ### 4. Run BF16 Baseline Training
 
+**Option A: Using Qwen (No Authentication Required)**
 ```bash
 bash /workspace/scripts/train_bf16.sh
+# Uses Qwen/Qwen2.5-7B by default
+```
+
+**Option B: Using Llama (Requires HuggingFace Authentication)**
+```bash
+# First, authenticate
+huggingface-cli login
+
+# Then run with Llama config
+bash /workspace/scripts/train_bf16.sh /workspace/configs/llama3_bf16_baseline_sft.yaml
 ```
 
 ### 5. Run FP8 Training
 
+**Option A: Using Qwen (No Authentication Required)**
 ```bash
 bash /workspace/scripts/train_fp8.sh
+# Uses Qwen/Qwen2.5-7B by default
 ```
+
+**Option B: Using Llama (Requires HuggingFace Authentication)**
+```bash
+# First, authenticate
+huggingface-cli login
+
+# Then run with Llama config
+bash /workspace/scripts/train_fp8.sh /workspace/configs/llama3_fp8_deepspeed_sft.yaml
+```
+
+> **Note:** Meta Llama models are gated and require accepting a license agreement on HuggingFace. See [AUTHENTICATION.md](AUTHENTICATION.md) for detailed instructions.
 
 ### 6. Compare Performance
 
@@ -176,11 +200,14 @@ Accelerate FP8 status - enabled: True
 llamafactory-fp8-test/
 ├── Dockerfile                          # NGC PyTorch + LLaMA-Factory
 ├── README.md                           # This file
+├── AUTHENTICATION.md                   # HuggingFace authentication guide
 ├── configs/
 │   ├── ds_z1_fp8_config.json          # Corrected DeepSpeed config
 │   ├── bf16_baseline_config.json      # BF16 baseline config
-│   ├── llama3_fp8_deepspeed_sft.yaml  # FP8 training config
-│   └── llama3_bf16_baseline_sft.yaml  # BF16 training config
+│   ├── qwen_fp8_deepspeed_sft.yaml    # FP8 config (Qwen, no auth)
+│   ├── qwen_bf16_baseline_sft.yaml    # BF16 config (Qwen, no auth)
+│   ├── llama3_fp8_deepspeed_sft.yaml  # FP8 config (Llama, requires auth)
+│   └── llama3_bf16_baseline_sft.yaml  # BF16 config (Llama, requires auth)
 ├── scripts/
 │   ├── train_fp8.sh                   # FP8 training script
 │   ├── train_bf16.sh                  # BF16 baseline script

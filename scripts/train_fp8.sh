@@ -56,6 +56,11 @@ python -c "import transformer_engine; print(f'Transformer Engine version: {trans
     exit 1
 }
 
+# Config file (use argument or default to Qwen)
+CONFIG_FILE=${1:-/workspace/configs/qwen_fp8_deepspeed_sft.yaml}
+
+echo "Using config: $CONFIG_FILE"
+
 # Run training
 echo "Starting FP8 training..."
 torchrun --nproc_per_node=$GPU_NUM \
@@ -64,6 +69,6 @@ torchrun --nproc_per_node=$GPU_NUM \
     --master_addr=${MASTER_ADDR} \
     --master_port=${MASTER_PORT} \
     src/train.py \
-    /workspace/configs/llama3_fp8_deepspeed_sft.yaml
+    $CONFIG_FILE
 
 echo "FP8 training completed!"
