@@ -26,6 +26,9 @@ RUN pip install --no-cache-dir \
     wandb \
     torchao
 
+# Upgrade torchao to latest version (base image may have outdated version)
+RUN pip install --upgrade --no-cache-dir torchao
+
 # Set environment variables for optimal FP8 performance
 ENV PYTORCH_ALLOC_CONF=expandable_segments:True
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
