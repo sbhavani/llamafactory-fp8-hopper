@@ -8,7 +8,11 @@ trust_remote_code: true
 ### Method configuration
 stage: sft
 do_train: true
-finetuning_type: full
+finetuning_type: lora
+lora_target: all
+lora_rank: 8
+lora_alpha: 16
+lora_dropout: 0.05
 
 ### Dataset configuration
 dataset: ultrachat_200k

@@ -1,8 +1,8 @@
 # FP8 Training Configuration with DeepSpeed ZeRO-1 and Transformer Engine
-# Using Qwen2.5-7B (public model, no auth required)
+# Using Qwen2.5-1.5B (public model, no auth required, fits in memory)
 
 ### Model configuration
-model_name_or_path: Qwen/Qwen2.5-7B
+model_name_or_path: Qwen/Qwen2.5-1.5B
 trust_remote_code: true
 
 ### Method configuration
@@ -26,9 +26,9 @@ plot_loss: true
 overwrite_output_dir: true
 
 ### Training configuration
-per_device_train_batch_size: 1
+per_device_train_batch_size: 4
 per_device_eval_batch_size: 1
-gradient_accumulation_steps: 32
+gradient_accumulation_steps: 8
 gradient_checkpointing: true
 learning_rate: 2.0e-4
 num_train_epochs: 1
