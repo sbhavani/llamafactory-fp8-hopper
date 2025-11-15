@@ -5,72 +5,136 @@ Parses training logs and generates a performance comparison report.
 """
 
 import os
-import re
 import json
 from pathlib import Path
+import glob
 
-def parse_training_log(log_file):
-    """Parse training log to extract performance metrics."""
-    if not os.path.exists(log_file):
+def find_checkpoint_dirs(checkpoint_base="/workspace/checkpoints"):
+    """Find BF16 and FP8 checkpoint directories."""
+    bf16_patterns = ["*bf16*", "*baseline*"]
+    fp8_patterns = ["*fp8*", "*FP8*"]
+    
+    bf16_dir = None
+    fp8_dir = None
+    
+    for pattern in bf16_patterns:
+        matches = glob.glob(os.path.join(checkpoint_base, pattern))
+        if matches:
+            bf16_dir = matches[0]
+            break
+    
+    for pattern in fp8_patterns:
+        matches = glob.glob(os.path.join(checkpoint_base, pattern))
+        if matches:
+            fp8_dir = matches[0]
+            break
+    
+    return bf16_dir, fp8_dir
+
+def parse_trainer_state(checkpoint_dir):
+    """Parse trainer_state.json to extract performance metrics."""
+    if not checkpoint_dir or not os.path.exists(checkpoint_dir):
         return None
     
-    with open(log_file, 'r') as f:
-        content = f.read()
+    trainer_state_file = os.path.join(checkpoint_dir, "trainer_state.json")
     
-    # Extract iteration time
-    # Look for patterns like "8.15s/it" or "16.29s/it"
-    time_pattern = r'(\d+\.?\d*)s/it'
-    times = re.findall(time_pattern, content)
-    
-    if not times:
+    if not os.path.exists(trainer_state_file):
         return None
     
-    # Convert to float and calculate average
-    times = [float(t) for t in times]
-    avg_time = sum(times) / len(times)
+    try:
+        with open(trainer_state_file, 'r') as f:
+            state = json.load(f)
+        
+        # Extract metrics from log_history
+        log_history = state.get('log_history', [])
+        
+        if not log_history:
+            return None
+        
+        # Find the final training metrics
+        train_metrics = None
+        for entry in reversed(log_history):
+            if 'train_runtime' in entry:
+                train_metrics = entry
+                break
+        
+        if not train_metrics:
+            return None
+        
+        total_steps = state.get('global_step', 0)
+        runtime = train_metrics.get('train_runtime', 0)
+        
+        if total_steps > 0 and runtime > 0:
+            time_per_step = runtime / total_steps
+            
+            return {
+                "total_steps": total_steps,
+                "train_runtime": runtime,
+                "time_per_step": time_per_step,
+                "train_samples_per_second": train_metrics.get('train_samples_per_second', 0),
+                "train_loss": train_metrics.get('train_loss', 0),
+                "epoch": train_metrics.get('epoch', 0)
+            }
     
-    return {
-        "avg_iteration_time": avg_time,
-        "samples": len(times),
-        "min_time": min(times),
-        "max_time": max(times)
-    }
+    except Exception as e:
+        print(f"Error parsing {trainer_state_file}: {e}")
+    
+    return None
 
-def generate_report(bf16_metrics, fp8_metrics):
+def generate_report(bf16_metrics, fp8_metrics, bf16_dir, fp8_dir):
     """Generate performance comparison report."""
     print("\n" + "=" * 70)
     print("FP8 vs BF16 Performance Comparison")
     print("=" * 70)
     
+    if bf16_dir:
+        print(f"\n📁 BF16 Directory: {bf16_dir}")
+    if fp8_dir:
+        print(f"📁 FP8 Directory:  {fp8_dir}")
+    
     if not bf16_metrics:
-        print("⚠️  BF16 metrics not available")
+        print("\n⚠️  BF16 metrics not available")
+        print("   Make sure BF16 training completed successfully")
         bf16_time = None
     else:
-        bf16_time = bf16_metrics['avg_iteration_time']
+        bf16_time = bf16_metrics['time_per_step']
         print(f"\n📊 BF16 Baseline:")
-        print(f"   Average iteration time: {bf16_time:.2f} s/it")
-        print(f"   Samples: {bf16_metrics['samples']}")
-        print(f"   Range: {bf16_metrics['min_time']:.2f} - {bf16_metrics['max_time']:.2f} s/it")
+        print(f"   Time per step:    {bf16_time:.3f} s/step")
+        print(f"   Total steps:      {bf16_metrics['total_steps']}")
+        print(f"   Total runtime:    {bf16_metrics['train_runtime']:.2f} s")
+        print(f"   Samples/second:   {bf16_metrics['train_samples_per_second']:.2f}")
+        print(f"   Final loss:       {bf16_metrics['train_loss']:.4f}")
     
     if not fp8_metrics:
         print("\n⚠️  FP8 metrics not available")
+        print("   Make sure FP8 training completed successfully")
         fp8_time = None
     else:
-        fp8_time = fp8_metrics['avg_iteration_time']
+        fp8_time = fp8_metrics['time_per_step']
         print(f"\n📊 FP8 Training:")
-        print(f"   Average iteration time: {fp8_time:.2f} s/it")
-        print(f"   Samples: {fp8_metrics['samples']}")
-        print(f"   Range: {fp8_metrics['min_time']:.2f} - {fp8_metrics['max_time']:.2f} s/it")
+        print(f"   Time per step:    {fp8_time:.3f} s/step")
+        print(f"   Total steps:      {fp8_metrics['total_steps']}")
+        print(f"   Total runtime:    {fp8_metrics['train_runtime']:.2f} s")
+        print(f"   Samples/second:   {fp8_metrics['train_samples_per_second']:.2f}")
+        print(f"   Final loss:       {fp8_metrics['train_loss']:.4f}")
     
     if bf16_time and fp8_time:
         speedup = bf16_time / fp8_time
         improvement = ((bf16_time - fp8_time) / bf16_time) * 100
         
         print(f"\n🚀 Performance Comparison:")
-        print(f"   Speedup: {speedup:.2f}x")
+        print(f"   Speedup:          {speedup:.2f}x")
+        print(f"   Time difference:  {bf16_time - fp8_time:.3f} s/step")
         
         if speedup > 1.0:
             print(f"   ✅ FP8 is {improvement:.1f}% FASTER than BF16")
+            
+            if speedup >= 1.25:
+                print(f"   🎯 EXCELLENT: Achieving good FP8 performance!")
+            elif speedup >= 1.15:
+                print(f"   ✓  GOOD: Reasonable FP8 speedup")
+            else:
+                print(f"   ⚠️  MODERATE: FP8 speedup is modest")
         else:
             slowdown = ((fp8_time - bf16_time) / bf16_time) * 100
             print(f"   ❌ FP8 is {slowdown:.1f}% SLOWER than BF16")
@@ -81,34 +145,40 @@ def generate_report(bf16_metrics, fp8_metrics):
             print(f"   - Missing NVTE environment variables")
             print(f"   - Communication-compute overlap not enabled")
         
-        print(f"\n📈 Expected Results on Hopper GPUs:")
-        print(f"   Target speedup: ~1.3-1.5x")
-        print(f"   Expected FP8 time: ~5.4-6.3 s/it (from {bf16_time:.2f} s/it baseline)")
+        print(f"\n📈 Expected Results on Hopper GPUs (H100):")
+        print(f"   Target speedup:        1.3-1.5x")
+        print(f"   Expected FP8 time:     {bf16_time / 1.3:.3f} - {bf16_time / 1.5:.3f} s/step")
+        
+        if bf16_metrics and fp8_metrics:
+            throughput_improvement = ((fp8_metrics['train_samples_per_second'] - 
+                                      bf16_metrics['train_samples_per_second']) / 
+                                     bf16_metrics['train_samples_per_second']) * 100
+            print(f"   Throughput gain:       {throughput_improvement:.1f}%")
     
     print("\n" + "=" * 70)
 
 def main():
     """Main entry point."""
-    # Look for training logs
-    checkpoint_dir = Path("/workspace/checkpoints")
+    checkpoint_base = "/workspace/checkpoints"
     
-    bf16_log = checkpoint_dir / "llama3-bf16-baseline" / "trainer_log.jsonl"
-    fp8_log = checkpoint_dir / "llama3-fp8-deepspeed" / "trainer_log.jsonl"
+    print("Searching for training checkpoints...")
+    bf16_dir, fp8_dir = find_checkpoint_dirs(checkpoint_base)
     
-    # Alternative log locations
-    if not bf16_log.exists():
-        bf16_log = checkpoint_dir / "llama3-bf16-baseline" / "training.log"
-    if not fp8_log.exists():
-        fp8_log = checkpoint_dir / "llama3-fp8-deepspeed" / "training.log"
+    if not bf16_dir:
+        print(f"❌ Could not find BF16 checkpoint directory in {checkpoint_base}")
+    if not fp8_dir:
+        print(f"❌ Could not find FP8 checkpoint directory in {checkpoint_base}")
     
-    print("Parsing training logs...")
-    print(f"BF16 log: {bf16_log}")
-    print(f"FP8 log: {fp8_log}")
+    if not bf16_dir and not fp8_dir:
+        print("\nPlease run training first:")
+        print("  bash /workspace/scripts/train_bf16.sh")
+        print("  bash /workspace/scripts/train_fp8.sh")
+        return
     
-    bf16_metrics = parse_training_log(str(bf16_log))
-    fp8_metrics = parse_training_log(str(fp8_log))
+    bf16_metrics = parse_trainer_state(bf16_dir)
+    fp8_metrics = parse_trainer_state(fp8_dir)
     
-    generate_report(bf16_metrics, fp8_metrics)
+    generate_report(bf16_metrics, fp8_metrics, bf16_dir, fp8_dir)
 
 if __name__ == "__main__":
     main()
