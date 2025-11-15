@@ -166,7 +166,7 @@ def check_environment_variables():
         "NVTE_FLASH_ATTN",
         "NVTE_FUSED_ATTN",
         "NVTE_FP8_ALLREDUCE",
-        "PYTORCH_CUDA_ALLOC_CONF",
+        "PYTORCH_ALLOC_CONF",
     ]
     
     for var in important_vars:

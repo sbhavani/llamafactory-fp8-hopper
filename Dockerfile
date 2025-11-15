@@ -23,10 +23,11 @@ RUN git clone --depth 1 https://github.com/hiyouga/LLaMA-Factory.git && \
 RUN pip install --no-cache-dir \
     transformer-engine[pytorch] \
     deepspeed \
-    wandb
+    wandb \
+    torchao
 
 # Set environment variables for optimal FP8 performance
-ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+ENV PYTORCH_ALLOC_CONF=expandable_segments:True
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV WANDB_DISABLED=true
 

@@ -9,7 +9,7 @@ echo "FP8 Training with Transformer Engine"
 echo "=========================================="
 
 # Network configuration for multi-GPU
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export PYTORCH_ALLOC_CONF=expandable_segments:True
 export WANDB_DISABLED=true
 export TQDM_POSITION=-1
 

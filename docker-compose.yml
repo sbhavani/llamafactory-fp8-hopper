@@ -15,7 +15,7 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - CUDA_DEVICE_MAX_CONNECTIONS=1
-      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - PYTORCH_ALLOC_CONF=expandable_segments:True
       - WANDB_DISABLED=true
       - NVTE_APPLY_QK_LAYER_SCALING=1
       - NVTE_FP8_DPA_BWD=1

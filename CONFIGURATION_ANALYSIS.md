@@ -319,7 +319,7 @@ Speedup: 8.15 / 5.4 = 1.51x faster than BF16!
 #!/bin/bash
 
 # Network configuration
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export PYTORCH_ALLOC_CONF=expandable_segments:True
 export WANDB_DISABLED=true
 export TQDM_POSITION=-1
 
