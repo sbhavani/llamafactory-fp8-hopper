@@ -34,6 +34,11 @@ export NVTE_FP8_ALLREDUCE=1  # Hopper-specific optimization
 export NVTE_DEBUG=1
 export NVTE_DEBUG_LEVEL=1
 
+# Force Accelerate to use Transformer Engine backend
+# This must be set BEFORE trainer initialization
+export ACCELERATE_USE_FP8=1
+export FP8_BACKEND=te
+
 # GPU configuration
 GPU_NUM=${GPU_NUM:-$(nvidia-smi -L | wc -l)}
 WORLD_SIZE=${WORLD_SIZE:-1}

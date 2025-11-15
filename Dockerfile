@@ -21,11 +21,13 @@ RUN git clone --depth 1 https://github.com/hiyouga/LLaMA-Factory.git && \
 
 # Apply FP8 fixes for proper Transformer Engine support
 COPY patches/001-fix-model-args-not-passed.patch /tmp/
+COPY patches/002-fix-fp8-kwargs-passing.patch /tmp/
 COPY fp8_utils_fixed.py /tmp/
 
-# Apply patch for workflow.py (adds model_args parameter)
+# Apply patches
 RUN cd LLaMA-Factory && \
-    patch -p1 < /tmp/001-fix-model-args-not-passed.patch
+    patch -p1 < /tmp/001-fix-model-args-not-passed.patch && \
+    patch -p1 < /tmp/002-fix-fp8-kwargs-passing.patch
 
 # Replace fp8_utils.py with fixed version (adds TE backend support)
 RUN cp /tmp/fp8_utils_fixed.py /workspace/LLaMA-Factory/src/llamafactory/train/fp8_utils.py

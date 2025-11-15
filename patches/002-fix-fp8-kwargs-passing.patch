@@ -1,0 +1,17 @@
+--- a/src/llamafactory/train/sft/trainer.py
++++ b/src/llamafactory/train/sft/trainer.py
+@@ -58,7 +58,14 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
+     ) -> None:
+         # Configure FP8 environment if enabled
+         if model_args is not None and model_args.fp8:
++            from ..fp8_utils import create_fp8_kwargs
++            
+             configure_fp8_environment(model_args)
++            
++            # Pass FP8 kwargs to Accelerator
++            fp8_kwargs = create_fp8_kwargs(model_args)
++            if fp8_kwargs and 'kwargs_handlers' not in kwargs:
++                kwargs['kwargs_handlers'] = fp8_kwargs
+         if is_transformers_version_greater_than("4.46"):
+             kwargs["processing_class"] = kwargs.pop("tokenizer")
+         else:
