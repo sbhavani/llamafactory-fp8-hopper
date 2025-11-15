@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  llamafactory-fp8:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: llamafactory-fp8:latest
+    container_name: llamafactory-fp8-test
+    runtime: nvidia
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_DEVICE_MAX_CONNECTIONS=1
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - WANDB_DISABLED=true
+      - NVTE_APPLY_QK_LAYER_SCALING=1
+      - NVTE_FP8_DPA_BWD=1
+      - NVTE_FLASH_ATTN=1
+      - NVTE_FUSED_ATTN=1
+      - NVTE_FP8_ALLREDUCE=1
+      - NCCL_P2P_LEVEL=NVL
+    volumes:
+      - ./checkpoints:/workspace/checkpoints
+      - ./configs:/workspace/configs
+      - ./scripts:/workspace/scripts
+    stdin_open: true
+    tty: true
+    command: /bin/bash
