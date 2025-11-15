@@ -8,7 +8,7 @@
     "enabled": false
   },
   "bf16": {
-    "enabled": false
+    "enabled": "auto"
   },
   "zero_optimization": {
     "stage": 0
