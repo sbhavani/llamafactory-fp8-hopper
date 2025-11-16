@@ -47,3 +47,5 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+.llm/
+*.backup.*
