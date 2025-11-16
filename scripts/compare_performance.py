@@ -2,31 +2,42 @@
 """
 Compare FP8 vs BF16 Performance
 Parses training logs and generates a performance comparison report.
+
+Usage:
+  python compare_performance.py [bf16_dir] [fp8_dir]
+  
+If no directories specified, will auto-detect the most recent matching pair.
 """
 
 import os
 import json
 from pathlib import Path
 import glob
+import sys
 
-def find_checkpoint_dirs(checkpoint_base="/workspace/checkpoints"):
-    """Find BF16 and FP8 checkpoint directories."""
-    bf16_patterns = ["*bf16*", "*baseline*"]
-    fp8_patterns = ["*fp8*", "*FP8*"]
+def find_checkpoint_dirs(checkpoint_base="/workspace/checkpoints", model_size=None):
+    """Find BF16 and FP8 checkpoint directories, preferring most recent."""
+    all_dirs = [d for d in glob.glob(os.path.join(checkpoint_base, "*")) if os.path.isdir(d)]
     
+    # Sort by modification time (most recent first)
+    all_dirs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+    
+    # If model_size specified, filter
+    if model_size:
+        all_dirs = [d for d in all_dirs if model_size in os.path.basename(d)]
+    
+    # Find most recent FP8 and BF16 dirs
     bf16_dir = None
     fp8_dir = None
     
-    for pattern in bf16_patterns:
-        matches = glob.glob(os.path.join(checkpoint_base, pattern))
-        if matches:
-            bf16_dir = matches[0]
-            break
-    
-    for pattern in fp8_patterns:
-        matches = glob.glob(os.path.join(checkpoint_base, pattern))
-        if matches:
-            fp8_dir = matches[0]
+    for d in all_dirs:
+        basename = os.path.basename(d)
+        if not bf16_dir and ('bf16' in basename or 'baseline' in basename):
+            bf16_dir = d
+        if not fp8_dir and 'fp8' in basename:
+            fp8_dir = d
+        
+        if bf16_dir and fp8_dir:
             break
     
     return bf16_dir, fp8_dir
@@ -161,8 +172,23 @@ def main():
     """Main entry point."""
     checkpoint_base = "/workspace/checkpoints"
     
-    print("Searching for training checkpoints...")
-    bf16_dir, fp8_dir = find_checkpoint_dirs(checkpoint_base)
+    # Check for command line arguments
+    if len(sys.argv) >= 3:
+        # Explicit directories provided
+        bf16_dir = sys.argv[1] if sys.argv[1] != 'auto' else None
+        fp8_dir = sys.argv[2] if sys.argv[2] != 'auto' else None
+        print(f"Using specified directories:")
+        print(f"  BF16: {bf16_dir}")
+        print(f"  FP8:  {fp8_dir}")
+    elif len(sys.argv) == 2:
+        # Model size hint provided (e.g., "7b")
+        model_size = sys.argv[1]
+        print(f"Searching for most recent {model_size} checkpoints...")
+        bf16_dir, fp8_dir = find_checkpoint_dirs(checkpoint_base, model_size)
+    else:
+        # Auto-detect most recent
+        print("Searching for most recent training checkpoints...")
+        bf16_dir, fp8_dir = find_checkpoint_dirs(checkpoint_base)
     
     if not bf16_dir:
         print(f"❌ Could not find BF16 checkpoint directory in {checkpoint_base}")
@@ -173,6 +199,9 @@ def main():
         print("\nPlease run training first:")
         print("  bash /workspace/scripts/train_bf16.sh")
         print("  bash /workspace/scripts/train_fp8.sh")
+        print("\nOr specify directories:")
+        print("  python compare_performance.py <bf16_dir> <fp8_dir>")
+        print("  python compare_performance.py 7b  # Find most recent 7b checkpoints")
         return
     
     bf16_metrics = parse_trainer_state(bf16_dir)
