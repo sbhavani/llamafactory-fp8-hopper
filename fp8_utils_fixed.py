@@ -52,7 +52,7 @@ def create_fp8_kwargs(model_args: "ModelArguments") -> list[Any]:
             )
             
             logger.info_rank0("Using Transformer Engine FP8 backend (optimal for Hopper GPUs)")
-            return [FP8RecipeKwargs(backend="te", fp8_recipe=fp8_recipe)]
+            return [FP8RecipeKwargs(backend="te", recipe=fp8_recipe)]
         
         # Use TorchAO backend
         else:
