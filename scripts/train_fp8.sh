@@ -35,7 +35,7 @@ export NVTE_DEBUG=1
 export NVTE_DEBUG_LEVEL=1
 
 # Force Accelerate to use Transformer Engine backend via environment variables
-# TERecipeKwargs reads these automatically
+export ACCELERATE_FP8_BACKEND=TE  # THIS IS THE KEY!
 export ACCELERATE_FP8_FORMAT=HYBRID
 export ACCELERATE_FP8_AMAX_COMPUTE_ALGO=max
 export ACCELERATE_FP8_AMAX_HISTORY_LEN=16
