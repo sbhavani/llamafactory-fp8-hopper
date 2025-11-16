@@ -1,0 +1,51 @@
+# BF16 Baseline Configuration with Accelerate Only (No DeepSpeed)
+# Using Qwen2.5-1.5B (public model, no auth required)
+
+### Model configuration
+model_name_or_path: Qwen/Qwen2.5-1.5B
+trust_remote_code: true
+
+### Method configuration
+stage: sft
+do_train: true
+finetuning_type: full
+
+### Dataset configuration
+dataset: alpaca_en
+template: qwen
+cutoff_len: 4096
+max_samples: 500
+overwrite_cache: true
+preprocessing_num_workers: 16
+
+### Output configuration
+output_dir: /workspace/checkpoints/qwen-bf16-accelerate
+logging_steps: 10
+save_steps: 500
+plot_loss: true
+overwrite_output_dir: true
+
+### Training configuration
+per_device_train_batch_size: 4
+per_device_eval_batch_size: 1
+gradient_accumulation_steps: 8
+gradient_checkpointing: true
+learning_rate: 2.0e-4
+num_train_epochs: 1
+lr_scheduler_type: cosine
+warmup_steps: 50
+
+### Mixed Precision Configuration
+bf16: true
+tf32: true
+
+### NO DeepSpeed - Accelerate handles everything
+
+### Attention Configuration
+flash_attn: fa2
+
+### Data loader configuration
+dataloader_num_workers: 4
+
+### Logging configuration
+report_to: none
