@@ -1,0 +1,44 @@
+# FP8 Full Fine-tuning - Qwen 7B optimized for B200 (192GB)
+# Maximizes throughput with large batch and no gradient checkpointing
+
+model_name_or_path: Qwen/Qwen2.5-7B
+trust_remote_code: true
+
+stage: sft
+do_train: true
+finetuning_type: full
+
+dataset: alpaca_en
+template: qwen
+cutoff_len: 1024  # Longer sequences (plenty of memory!)
+max_samples: 500
+overwrite_cache: true
+preprocessing_num_workers: 16
+
+output_dir: /workspace/checkpoints/qwen-7b-fp8-b200
+logging_steps: 5
+save_steps: 1000
+plot_loss: false
+overwrite_output_dir: true
+
+# B200 optimization: Large batch, no gradient checkpointing!
+per_device_train_batch_size: 8  # Large batch (192GB!)
+gradient_accumulation_steps: 4
+max_steps: 100
+warmup_steps: 10
+learning_rate: 1.0e-5
+lr_scheduler_type: constant
+
+bf16: true
+tf32: true
+fp8: true
+fp8_backend: te
+
+flash_attn: fa2
+gradient_checkpointing: false  # Disabled for speed (we have memory!)
+dataloader_num_workers: 8  # More workers for throughput
+report_to: none
+
+# Optimization flags
+torch_compile: false  # Can enable if needed
+optim: adamw_torch_fused  # Faster fused optimizer

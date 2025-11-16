@@ -1,0 +1,40 @@
+# BF16 Full Fine-tuning - Qwen 7B optimized for B200 (192GB)
+# Baseline for FP8 comparison
+
+model_name_or_path: Qwen/Qwen2.5-7B
+trust_remote_code: true
+
+stage: sft
+do_train: true
+finetuning_type: full
+
+dataset: alpaca_en
+template: qwen
+cutoff_len: 1024
+max_samples: 500
+overwrite_cache: true
+preprocessing_num_workers: 16
+
+output_dir: /workspace/checkpoints/qwen-7b-bf16-b200
+logging_steps: 5
+save_steps: 1000
+plot_loss: false
+overwrite_output_dir: true
+
+# Same settings as FP8 for fair comparison
+per_device_train_batch_size: 8
+gradient_accumulation_steps: 4
+max_steps: 100
+warmup_steps: 10
+learning_rate: 1.0e-5
+lr_scheduler_type: constant
+
+bf16: true
+tf32: true
+
+flash_attn: fa2
+gradient_checkpointing: false
+dataloader_num_workers: 8
+report_to: none
+
+optim: adamw_torch_fused
