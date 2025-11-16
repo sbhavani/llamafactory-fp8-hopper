@@ -1,0 +1,38 @@
+# BF16 Benchmark for Qwen2.5-7B
+model_name_or_path: Qwen/Qwen2.5-7B
+trust_remote_code: true
+
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 64
+lora_alpha: 128
+lora_target: all
+
+dataset: alpaca_en
+template: qwen
+cutoff_len: 1024
+max_samples: 500
+overwrite_cache: true
+preprocessing_num_workers: 16
+
+output_dir: /workspace/checkpoints/qwen-7b-bf16-benchmark
+logging_steps: 5
+save_steps: 1000
+plot_loss: false
+overwrite_output_dir: true
+
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 8
+max_steps: 100
+warmup_steps: 10
+learning_rate: 2.0e-4
+lr_scheduler_type: constant
+
+bf16: true
+tf32: true
+
+flash_attn: fa2
+gradient_checkpointing: true
+dataloader_num_workers: 4
+report_to: none
