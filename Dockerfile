@@ -14,23 +14,11 @@ RUN apt-get update && apt-get install -y \
     net-tools \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone and install LLaMA-Factory
-RUN git clone --depth 1 https://github.com/hiyouga/LLaMA-Factory.git && \
+# Clone and install LLaMA-Factory (using fork with FP8 fixes)
+RUN git clone --depth 1 -b fix/fp8-transformer-engine \
+    https://github.com/sbhavani/LLaMA-Factory.git && \
     cd LLaMA-Factory && \
     pip install -e ".[deepspeed,metrics]" --no-build-isolation
-
-# Apply FP8 fixes for proper Transformer Engine support
-COPY patches/001-fix-model-args-not-passed.patch /tmp/
-COPY patches/002-fix-fp8-kwargs-passing.patch /tmp/
-COPY fp8_utils_fixed.py /tmp/
-
-# Apply patches
-RUN cd LLaMA-Factory && \
-    patch -p1 < /tmp/001-fix-model-args-not-passed.patch && \
-    patch -p1 < /tmp/002-fix-fp8-kwargs-passing.patch
-
-# Replace fp8_utils.py with fixed version (adds TE backend support)
-RUN cp /tmp/fp8_utils_fixed.py /workspace/LLaMA-Factory/src/llamafactory/train/fp8_utils.py
 
 # Install additional dependencies for FP8 with Transformer Engine
 RUN pip install --no-cache-dir \
