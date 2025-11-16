@@ -34,10 +34,11 @@ export NVTE_FP8_ALLREDUCE=1  # Hopper-specific optimization
 export NVTE_DEBUG=1
 export NVTE_DEBUG_LEVEL=1
 
-# Force Accelerate to use Transformer Engine backend
-# This must be set BEFORE trainer initialization
-export ACCELERATE_USE_FP8=1
-export FP8_BACKEND=te
+# Force Accelerate to use Transformer Engine backend via environment variables
+# TERecipeKwargs reads these automatically
+export ACCELERATE_FP8_FORMAT=HYBRID
+export ACCELERATE_FP8_AMAX_COMPUTE_ALGO=max
+export ACCELERATE_FP8_AMAX_HISTORY_LEN=16
 
 # GPU configuration
 GPU_NUM=${GPU_NUM:-$(nvidia-smi -L | wc -l)}
