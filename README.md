@@ -1,285 +1,159 @@
-# LLaMA-Factory FP8 Testing on Hopper GPUs
+# LLaMA-Factory FP8 Training Setup
 
-This repository provides a complete testing environment for FP8 training with LLaMA-Factory on NVIDIA Hopper GPUs (H100, GH200), demonstrating proper configuration and fixing common performance issues.
+This repository contains Docker-based setup for training LLMs with FP8 precision using NVIDIA Transformer Engine on Hopper (H100) or Blackwell (B200) GPUs.
 
-## 🔴 Problem Statement
+## Quick Start
 
-Common issue reported: **2x slowdown** with FP8 compared to BF16 on Hopper GPUs:
-- **BF16**: 8.15s/it
-- **FP8**: 16.29s/it (should be ~5-6s/it!)
-
-## ✅ Solution
-
-This test environment provides:
-1. **Corrected DeepSpeed configuration** (removes invalid FP8 section)
-2. **Proper FP8 backend selection** (Transformer Engine, not TorchAO)
-3. **Hopper-specific optimizations** (NVLink, communication overlap)
-4. **Proper environment variable configuration**
-5. **Performance comparison tools**
-
-## 📋 Prerequisites
-
-- NVIDIA Hopper GPU: H100 or GH200 (Compute Capability 8.9+)
-- Docker with GPU support
-- NVIDIA Container Toolkit
-- For single GPU: 1x GH200/H100 (80GB+ VRAM recommended)
-
-## 🚀 Quick Start
-
-### 1. Build the Docker Image
+### 1. Build Docker Image
 
 ```bash
-cd llamafactory-fp8-test
 docker build -t llamafactory-fp8:latest .
 ```
 
-### 2. Run the Container
+### 2. Run Container
 
 ```bash
-docker run -it --rm \
-  --gpus all \
-  --ipc=host \
-  --ulimit memlock=-1 \
-  --ulimit stack=67108864 \
+docker run --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
   -v $(pwd)/checkpoints:/workspace/checkpoints \
   -v $(pwd)/configs:/workspace/configs \
-  llamafactory-fp8:latest
+  -v $(pwd)/scripts:/workspace/scripts \
+  -v /tmp:/tmp \
+  -it llamafactory-fp8:latest bash
 ```
 
-### 3. Verify FP8 Setup
+### 3. Train with FP8 (Proper Method)
 
 Inside the container:
 
 ```bash
-python /workspace/scripts/verify_fp8.py
+# FP8 training using Accelerate config (RECOMMENDED)
+bash /workspace/scripts/train_fp8_proper.sh
+
+# BF16 baseline for comparison
+bash /workspace/scripts/train_bf16_proper.sh
 ```
 
-This checks:
-- ✅ CUDA availability and FP8 hardware support
-- ✅ Transformer Engine installation
-- ✅ HuggingFace Accelerate FP8 support
-- ✅ DeepSpeed installation
-- ✅ LLaMA-Factory FP8 utilities
-- ✅ Environment variables
+## How It Works
 
-### 4. Run BF16 Baseline Training
+### The Proper Way: Accelerate Config Files
 
-**Option A: Using Qwen (No Authentication Required)**
-```bash
-bash /workspace/scripts/train_bf16.sh
-# Uses Qwen/Qwen2.5-7B by default
+The **official and correct way** to use FP8 with HuggingFace Trainer is via Accelerate config files:
+
+1. **Create Accelerate config** (`configs/accelerate_fp8.yaml`):
+   ```yaml
+   mixed_precision: fp8
+   fp8_config:
+     backend: TE
+     fp8_format: HYBRID
+     amax_compute_algo: max
+     amax_history_len: 1024
+   ```
+
+2. **Launch with `accelerate launch`**:
+   ```bash
+   accelerate launch --config_file configs/accelerate_fp8.yaml \
+     /workspace/LLaMA-Factory/src/train.py \
+     <training arguments>
+   ```
+
+3. **Trainer automatically uses FP8** - No code changes needed!
+
+### Why This Works
+
+- ✅ **`accelerate launch`** sets up the FP8 environment BEFORE running your script
+- ✅ **Trainer detects Accelerate's FP8 config** automatically
+- ✅ **Zero conflicts** - Official Accelerate workflow
+- ✅ **Works with DeepSpeed/FSDP** - Fully compatible
+
+### LLaMA-Factory Integration
+
+Our fork of LLaMA-Factory ([sbhavani/LLaMA-Factory](https://github.com/sbhavani/LLaMA-Factory), branch `fix/accelerate-config-support`) includes a fix to:
+
+- **Detect if Accelerate is already configured** via config file
+- **Skip setting conflicting environment variables** when using `accelerate launch`
+- **Maintain backward compatibility** with direct `python train.py` usage
+
+See the key change in `src/llamafactory/train/fp8_utils.py`:
+
+```python
+def configure_fp8_environment(model_args):
+    # Skip if Accelerate is already configured via config file
+    if os.environ.get("ACCELERATE_MIXED_PRECISION"):
+        logger.info("Accelerate already configured - skipping FP8 setup")
+        return
+    # ... otherwise set env vars
 ```
 
-**Option B: Using Llama (Requires HuggingFace Authentication)**
-```bash
-# First, authenticate
-huggingface-cli login
+## Performance Benchmark
 
-# Then run with Llama config
-bash /workspace/scripts/train_bf16.sh /workspace/configs/llama3_bf16_baseline_sft.yaml
-```
-
-### 5. Run FP8 Training
-
-**Option A: Using Qwen (No Authentication Required)**
-```bash
-bash /workspace/scripts/train_fp8.sh
-# Uses Qwen/Qwen2.5-7B by default
-```
-
-**Option B: Using Llama (Requires HuggingFace Authentication)**
-```bash
-# First, authenticate
-huggingface-cli login
-
-# Then run with Llama config
-bash /workspace/scripts/train_fp8.sh /workspace/configs/llama3_fp8_deepspeed_sft.yaml
-```
-
-> **Note:** Meta Llama models are gated and require accepting a license agreement on HuggingFace. See [AUTHENTICATION.md](AUTHENTICATION.md) for detailed instructions.
-
-### 6. Compare Performance
-
-```bash
-python /workspace/scripts/compare_performance.py
-```
-
-## 📊 Expected Results
-
-### On Hopper GPUs with Proper Configuration:
-
-| Metric | BF16 | FP8 (Corrected) | Speedup |
-|--------|------|-----------------|---------|
-| Iteration Time | 8.15 s/it | **~5.4-6.3 s/it** | **~1.3-1.5x** |
-| Memory Usage | Baseline | ~70% of baseline | 30% reduction |
-| Throughput | Baseline | 1.3-1.5x baseline | 30-50% faster |
-
-### Common Configuration Errors:
-
-❌ DeepSpeed config had invalid `"fp8"` section  
-❌ Communication data type set to FP32 (expensive casting)  
-❌ Missing `CUDA_DEVICE_MAX_CONNECTIONS=1` for overlap  
-❌ Missing `NVTE_FP8_ALLREDUCE=1` for Hopper optimizations  
-❌ FP8 backend defaulting to TorchAO instead of TE  
-❌ NVTE environment variables being ignored  
-
-## 🔧 Configuration Files
-
-### DeepSpeed Config (`ds_z1_fp8_config.json`)
-
-```json
-{
-  "zero_optimization": {
-    "stage": 1,
-    "overlap_comm": false,
-    "contiguous_gradients": true
-  }
-}
-```
-
-**Key Points:**
-- ✅ NO `"fp8"` section (DeepSpeed doesn't handle FP8!)
-- ✅ NO `"communication_data_type"` (let TE handle it)
-- ✅ NO `"data_types"` section
-
-### Training Config (`llama3_fp8_deepspeed_sft.yaml`)
-
-```yaml
-fp8: true
-fp8_backend: te  # Explicitly use Transformer Engine
-bf16: true       # For non-FP8 layers
-deepspeed: /workspace/configs/ds_z1_fp8_config.json
-```
-
-**Key Points:**
-- ✅ `fp8_backend: te` explicitly set (not default `auto`)
-- ✅ DeepSpeed only for optimizer sharding
-- ✅ FP8 handled by Accelerate + Transformer Engine
-
-### Environment Variables
+We verified that **Accelerate's FP8 integration has zero overhead** compared to pure Transformer Engine:
 
 ```bash
-# Critical for Hopper performance
-export CUDA_DEVICE_MAX_CONNECTIONS=1         # Enable comm-compute overlap
-export NVTE_FP8_ALLREDUCE=1                  # Hopper FP8 all-reduce
-export NVTE_APPLY_QK_LAYER_SCALING=1         # QK layer scaling
-export NVTE_FP8_DPA_BWD=1                    # FP8 in attention backward
-export NVTE_FLASH_ATTN=1                     # Flash attention with FP8
-export NVTE_FUSED_ATTN=1                     # Fused attention
+# Run official Accelerate benchmark
+cd /workspace/accelerate-test/benchmarks/fp8/transformer_engine
+python test_fp8_speed.py
 ```
 
-## 🐛 Debugging
+**Results:**
+- Baseline (Pure TE): 0.053s per step
+- Accelerate: 0.053s per step
+- ✅ **Equivalent performance!**
 
-### Enable Debug Output
+## Configuration Files
+
+- `configs/accelerate_fp8.yaml` - Accelerate FP8 configuration
+- `configs/accelerate_bf16.yaml` - Accelerate BF16 configuration (baseline)
+- `configs/qwen_7b_fp8_full_benchmark.yaml` - LLaMA-Factory training config for FP8
+- `configs/qwen_7b_bf16_full_benchmark.yaml` - LLaMA-Factory training config for BF16
+
+## Scripts
+
+- `scripts/train_fp8_proper.sh` - FP8 training using `accelerate launch`
+- `scripts/train_bf16_proper.sh` - BF16 training using `accelerate launch`
+- `scripts/compare_performance.py` - Compare FP8 vs BF16 performance
+
+## Environment Variables
+
+Key environment variables set in training scripts:
 
 ```bash
-export NVTE_DEBUG=1
-export NVTE_DEBUG_LEVEL=1
+export PYTORCH_ALLOC_CONF=expandable_segments:True  # Better CUDA memory management
+export TOKENIZERS_PARALLELISM=false                 # Avoid tokenizer warnings
+export HF_HOME=/tmp/huggingface                     # Cache models in /tmp
+export NVTE_DEBUG=1                                 # Enable TE debug logging
 ```
 
-### Check FP8 is Actually Running
+## Expected Performance
 
-Look for these in the logs:
+FP8 training should provide:
+- **1.3-1.5x speedup** on H100/H200 for models 7B+
+- **20-30% memory reduction** compared to BF16
+- **Equivalent accuracy** with proper hyperparameters
 
-```
-Transformer Engine version: X.X.X
-FP8 training enabled with te backend
-Accelerate FP8 status - enabled: True
-```
+## Troubleshooting
 
-### If FP8 is Still Slower
+### Issue: FP8 is slower than BF16
+- **Cause**: Model too small (< 7B parameters)
+- **Fix**: Use larger models (7B+) or disable FP8
 
-1. **Verify backend**: Check logs for `FP8 backend: te` (not `torchao`)
-2. **Check GPU**: Must be CC 8.9+ (H100, GH200, etc.)
-3. **Verify environment**: Run `verify_fp8.py` script
-4. **Check DeepSpeed config**: Should NOT have `"fp8"` or `"communication_data_type"` sections
+### Issue: CUDA Out of Memory
+- **Fix**: Reduce `per_device_train_batch_size` or increase `gradient_accumulation_steps`
 
-## 📁 Repository Structure
+### Issue: "Accelerate already configured" warning
+- **Expected**: When using `accelerate launch`, LLaMA-Factory detects the config and skips its own setup
 
-```
-llamafactory-fp8-test/
-├── Dockerfile                          # NGC PyTorch + LLaMA-Factory
-├── README.md                           # This file
-├── AUTHENTICATION.md                   # HuggingFace authentication guide
-├── configs/
-│   ├── ds_z1_fp8_config.json          # Corrected DeepSpeed config
-│   ├── bf16_baseline_config.json      # BF16 baseline config
-│   ├── qwen_fp8_deepspeed_sft.yaml    # FP8 config (Qwen, no auth)
-│   ├── qwen_bf16_baseline_sft.yaml    # BF16 config (Qwen, no auth)
-│   ├── llama3_fp8_deepspeed_sft.yaml  # FP8 config (Llama, requires auth)
-│   └── llama3_bf16_baseline_sft.yaml  # BF16 config (Llama, requires auth)
-├── scripts/
-│   ├── train_fp8.sh                   # FP8 training script
-│   ├── train_bf16.sh                  # BF16 baseline script
-│   ├── verify_fp8.py                  # Environment verification
-│   └── compare_performance.py         # Performance comparison
-└── checkpoints/                        # Training outputs (created at runtime)
-```
+## References
 
-## 🎯 Key Differences from Common Broken Configs
+- [HuggingFace Accelerate FP8 Documentation](https://huggingface.co/docs/accelerate/usage_guides/low_precision_training)
+- [NVIDIA Transformer Engine](https://docs.nvidia.com/deeplearning/transformer-engine/)
+- [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory)
+- [Our Fork](https://github.com/sbhavani/LLaMA-Factory/tree/fix/accelerate-config-support)
 
-| Aspect | Common Broken Config | This Config | Impact |
-|--------|---------------|-------------|--------|
-| DeepSpeed FP8 section | ❌ Present | ✅ Removed | No conflict |
-| Communication dtype | ❌ FP32 | ✅ Auto (FP8) | 2x speedup |
-| FP8 backend | ❌ Auto (→TorchAO) | ✅ Explicit TE | Proper FP8 |
-| CUDA_DEVICE_MAX_CONNECTIONS | ❌ Missing | ✅ Set to 1 | Overlap enabled |
-| NVTE_FP8_ALLREDUCE | ❌ Missing | ✅ Set to 1 | Hopper optimization |
-| fp8_backend flag | ❌ Not set | ✅ `te` | Uses TE not TorchAO |
+## Contributing
 
-## 🔗 References
+This setup was developed to enable proper FP8 training with LLaMA-Factory and HuggingFace Trainer. The key insight was using Accelerate's official config file approach instead of programmatic configuration.
 
-### Documentation
-- [Transformer Engine User Guide](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/index.html)
-- [HuggingFace Accelerate FP8 Guide](https://huggingface.co/docs/accelerate/usage_guides/low_precision_training)
-- [LLaMA-Factory Documentation](https://github.com/hiyouga/LLaMA-Factory)
-
-### Related Issues
-- [HuggingFace Accelerate FP8 Examples](https://github.com/huggingface/accelerate/tree/main/benchmarks/fp8/transformer_engine)
-- [Transformer Engine Examples](https://github.com/NVIDIA/TransformerEngine/tree/main/examples/pytorch)
-
-## 📝 Notes
-
-### Multi-Node Training
-
-For multi-node setups, set these on each node:
-
-```bash
-export GPU_NUM=8                    # GPUs per node
-export WORLD_SIZE=2                 # Number of nodes
-export RANK=0                       # Node rank (0, 1, 2, ...)
-export MASTER_ADDR=192.168.0.1      # First node's IP
-export MASTER_PORT=29500
-```
-
-### Custom Model Paths
-
-Edit the YAML configs to point to your model:
-
-```yaml
-model_name_or_path: /path/to/your/model
-```
-
-### Custom Network Interfaces
-
-Uncomment and adjust in training scripts:
-
-```bash
-export GLOO_SOCKET_IFNAME=enp50s0   # Your network interface
-export NCCL_SOCKET_IFNAME=enp50s0
-```
-
-## 🤝 Contributing
-
-Found an issue or improvement? Please open an issue or PR!
-
-## 📜 License
-
-Apache 2.0 (same as LLaMA-Factory)
-
-## 🙏 Acknowledgments
-
-- NVIDIA Transformer Engine team
-- HuggingFace Accelerate team
-- LLaMA-Factory maintainers
-- Community contributors for reporting issues
+To contribute upstream:
+1. Test the Accelerate config approach with vanilla Transformers
+2. Submit PR to HuggingFace Transformers if issues are found
+3. Update LLaMA-Factory documentation with FP8 best practices

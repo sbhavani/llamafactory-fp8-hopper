@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y \
     net-tools \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone and install LLaMA-Factory (using fork with FP8 fixes)
-RUN git clone --depth 1 -b fix/fp8-transformer-engine \
+# Clone and install LLaMA-Factory (using fork with Accelerate config support)
+RUN git clone --depth 1 -b fix/accelerate-config-support \
     https://github.com/sbhavani/LLaMA-Factory.git && \
     cd LLaMA-Factory && \
     pip install -e ".[deepspeed,metrics]" --no-build-isolation
