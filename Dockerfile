@@ -42,7 +42,7 @@ COPY scripts/ /workspace/scripts/
 RUN chmod +x /workspace/scripts/*.sh
 
 # Verify installation
-RUN python -c "import transformer_engine.pytorch as te; print(f'TE version: {te.__version__}')" && \
+RUN python -c "import transformer_engine; print(f'TE version: {transformer_engine.__version__}')" && \
     python -c "import llamafactory; print('LLaMA-Factory OK')" && \
     python -c "from accelerate import __version__; print(f'Accelerate: {__version__}')"
 
