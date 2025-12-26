@@ -1,0 +1,24 @@
+# BF16 Full Fine-tuning - Mistral 7B (minimal test)
+model_name_or_path: mistralai/Mistral-7B-v0.3
+
+stage: sft
+do_train: true
+finetuning_type: full
+
+dataset: alpaca_en
+template: mistral
+cutoff_len: 256
+max_samples: 100
+overwrite_cache: true
+
+output_dir: /workspace/checkpoints/mistral-7b-bf16-minimal
+logging_steps: 5
+overwrite_output_dir: true
+
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 1
+max_steps: 10
+
+bf16: true
+gradient_checkpointing: true
+report_to: none
