@@ -28,6 +28,7 @@ learning_rate: 1.0e-5
 lr_scheduler_type: constant
 
 bf16: true
+pure_bf16: true
 tf32: true
 
 flash_attn: fa2

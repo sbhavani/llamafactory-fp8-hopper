@@ -33,9 +33,6 @@ tf32: true
 fp8: true
 fp8_backend: te
 
-# Use DeepSpeed ZeRO-1 to shard optimizer states
-deepspeed: /workspace/configs/ds_z1_fp8_config.json
-
 flash_attn: fa2
 gradient_checkpointing: true
 dataloader_num_workers: 4
