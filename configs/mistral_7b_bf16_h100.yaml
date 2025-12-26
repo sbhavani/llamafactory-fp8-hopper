@@ -1,0 +1,35 @@
+# BF16 Full Fine-tuning - Mistral 7B on H100 (baseline)
+model_name_or_path: mistralai/Mistral-7B-v0.3
+trust_remote_code: true
+
+stage: sft
+do_train: true
+finetuning_type: full
+
+dataset: alpaca_en
+template: mistral
+cutoff_len: 512
+max_samples: 200
+overwrite_cache: true
+preprocessing_num_workers: 16
+
+output_dir: /workspace/checkpoints/mistral-7b-bf16-h100
+logging_steps: 5
+save_steps: 1000
+plot_loss: false
+overwrite_output_dir: true
+
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 8
+max_steps: 50
+warmup_steps: 5
+learning_rate: 1.0e-5
+lr_scheduler_type: constant
+
+bf16: true
+tf32: true
+
+flash_attn: fa2
+gradient_checkpointing: true
+dataloader_num_workers: 4
+report_to: none
