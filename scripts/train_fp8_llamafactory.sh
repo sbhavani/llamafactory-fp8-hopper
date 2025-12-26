@@ -26,14 +26,7 @@ echo "Accelerate Config: $BASE_DIR/configs/accelerate_fp8.yaml"
 echo "Base Directory: $BASE_DIR"
 echo ""
 
-# Apply FP8 trainer patch if needed
-if [[ -f "$BASE_DIR/scripts/patch_trainer_fp8.py" ]]; then
-    echo "Checking/applying FP8 trainer patch..."
-    python "$BASE_DIR/scripts/patch_trainer_fp8.py" "$BASE_DIR/LLaMA-Factory" 2>/dev/null || \
-    python "$BASE_DIR/scripts/patch_trainer_fp8.py" "/workspace/LLaMA-Factory" 2>/dev/null || \
-    echo "Note: Could not auto-patch trainer (may already be patched or path differs)"
-    echo ""
-fi
+# NOTE: Patch script removed - LLaMA-Factory fork already has correct FP8 code
 
 # Force FP8 mixed precision (critical fix!)
 export ACCELERATE_MIXED_PRECISION=fp8
