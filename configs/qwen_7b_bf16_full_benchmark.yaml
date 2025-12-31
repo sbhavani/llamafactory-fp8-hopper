@@ -20,17 +20,19 @@ save_steps: 1000
 plot_loss: false
 overwrite_output_dir: true
 
-per_device_train_batch_size: 1
-gradient_accumulation_steps: 16
+per_device_train_batch_size: 2  # Match FP8 config for fair comparison
+gradient_accumulation_steps: 8  # Maintain effective batch size of 16
 max_steps: 50
 warmup_steps: 5
 learning_rate: 1.0e-5
 lr_scheduler_type: constant
 
 bf16: true
+pure_bf16: true
 tf32: true
 
-deepspeed: /workspace/configs/ds_z0_single_gpu_config.json
+# No DeepSpeed for fair comparison with FP8 config
+# (FP8 config uses Accelerate only)
 
 flash_attn: fa2
 gradient_checkpointing: true
